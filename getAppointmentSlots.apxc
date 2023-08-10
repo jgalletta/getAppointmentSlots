@@ -1,0 +1,55 @@
+public class getAppointmentSlots {
+	 @invocableMethod(label='GetAppointmentSlots' description='call getAppointmentSlots Apex method')
+    public static list<event> getSlots(list<payloadIn> payloadList ){
+        if(payloadList == null || payloadList.size() <> 1) return null;
+        payloadIn pl = payloadList[0];
+        
+        //list of required service ids - replace with query, hard value is for testing only
+        List<String> rIds = new List<String>();
+        rIds.add('0Hn8e000000kFznCAE');
+        
+        //build an instance of getAppointmentSlotsInput with builder class and set parameters
+        lxscheduler.GetAppointmentSlotsInput input = new lxscheduler.GetAppointmentSlotsInputBuilder()
+            .setWorkTypeGroupId(pl.workTypeGroupId)
+            .setTerritoryIds(new List<String>{pl.serviceTerritoryId})
+			.setRequiredResourceIds(rIds)
+            .setAccountId(pl.accountId)
+            .setEndTime(Datetime.now().addDays(10).format('yyyy-MM-dd\'T\'HH:mm:ssZ'))
+            //.setSchedulingPolicyId(pl.schedulingPolicyId)
+            .setApiVersion(Double.valueOf('50.0'))
+            .build();
+        
+        //call getAppointmentSlots from lxscheduler namespace
+        String response = lxscheduler.SchedulerResources.getAppointmentSlots(input);
+        
+        //parse the results using JSON.deserialize
+        if(response==null) return null;
+        list<timeSlots> allslots = timeSlots.parse(response);
+        
+        //slots found, return just the first one
+        if(allslots!=null) {
+            event thisevent = new event();
+            thisevent.startdatetime = allslots[0].startTime;
+            thisevent.enddatetime = allslots[0].endTime;
+            thisevent.description = allslots[0].territoryId;
+            //check resources not null
+            if(allslots[0].resources != null){
+            	thisevent.whoid = allslots[0].resources[0];
+            }
+            system.debug(thisevent);
+            return new list<event>{thisevent};
+        }
+        //no slots found, return null
+        return null;
+    }
+    
+    public class payloadIn{
+        @invocableVariable(required=true)
+        public string workTypeGroupId;
+        @invocableVariable(required=true)
+        public string serviceTerritoryId;
+        @invocableVariable(required=true)
+        public string accountId;
+
+    }
+}
